@@ -1,6 +1,6 @@
 module bigshift (clk, inp, out);
 
-parameter BITS = 750;
+parameter BITS = 7500;
 
 input clk;
 input inp;
