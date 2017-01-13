@@ -1,5 +1,7 @@
 Bitstream compressor in JavaScript.
 
+Original compression algorithm and C/Python implementation is here: https://github.com/cliffordwolf/icestorm/tree/master/icecompr
+
 ## Usage
 
 ### CLI
