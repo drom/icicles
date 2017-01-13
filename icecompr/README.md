@@ -7,7 +7,7 @@ Bitstream compressor in JavaScript.
 The tool can be used from unix command line.
 
 ```sh
-./icecompr < mybitstream.bin > mybitstream.bin.compr
+./icecompr.js < mybitstream.bin > mybitstream.bin.compr
 ```
 
 ### Library
