@@ -15,9 +15,9 @@ function dumpToTheSwamp (swamp, frogs, value, bits) {
     for (i = 0; i < bits; i++) {
         cursor = frogs + i;
         bcursor = cursor >> 3;
-        pcursor = cursor & 7;
+        pcursor = 7 - (cursor & 7);
         mask = ~(1 << pcursor) && 0xff;
-        update = ((value >> i) & 1) << pcursor;
+        update = ((value >> (bits - i - 1)) & 1) << pcursor;
         byte = swamp[bcursor];
         swamp[bcursor] = (byte & mask) | update;
     }
@@ -25,11 +25,11 @@ function dumpToTheSwamp (swamp, frogs, value, bits) {
 
 function compressor () {
 
-    var $ = stream.Duplex();
+    var $ = stream.Transform();
     // parse STATE
     var numzeros = 0;
     // compress STATE
-    var swamp = Buffer.alloc(256);
+    var swamp = Buffer.alloc(0x1000);
     var frogs = 0; // [bits]
 
     function push_int_bits (value, bits) {
@@ -40,27 +40,21 @@ function compressor () {
             dumpToTheSwamp(swamp, frogs, value, bits);
             frogs += bits;
         } else {
-            dumpToTheSwamp(swamp, frogs, value, scratch);
+            tail = bits - scratch;
+            dumpToTheSwamp(swamp, frogs, value >> scratch, tail);
             // drain the swamp
             $.push(swamp);
-            tail = bits - scratch;
-            dumpToTheSwamp(swamp, 0, value >> scratch, tail);
+            dumpToTheSwamp(swamp, 0, value, scratch);
             frogs = tail;
         }
-    }
-
-    function drainTheSwamp () {
-        push_int_bits (0, 5);
-        push_int_bits (numzeros, 23);
-        $.push(swamp.slice(0, (frogs + 7) >> 3));
     }
 
     function parse (chunk) {
         var deltas = [];
         var i, ilen, byte, bit;
-        for (i = 0, ilen = chunk.length; i < ilen; i++) {
+        for (i = 0, ilen = 8 * chunk.length; i < ilen; i++) {
             byte = chunk[i >> 3];
-            bit = byte & (1 << (i & 7));
+            bit = byte & (1 << (7 - (i & 7)));
             if (bit) {
                 deltas.push(numzeros);
                 numzeros = 0;
@@ -80,6 +74,7 @@ function compressor () {
             delta;
 
         var i, ilen, j, k;
+
         for (i = 0, ilen = deltas.length; i < ilen; i++) {
             raw_len = 0;
             compr_len = 0;
@@ -109,7 +104,7 @@ function compressor () {
             if (best_compr_raw_diff > 9) {
                 // opcode_stats_raw++;
 
-                push_int_bits(8, 4);
+                push_int_bits(1, 4);
                 push_int_bits(best_compr_raw_len - 1, 6);
 
                 for (j = 0; j <= best_compr_raw_idx; j++) {
@@ -135,16 +130,16 @@ function compressor () {
             } else
             if (delta < 32) {
                 // opcode_stats_d32++;
-                push_int_bits(2, 2);
+                push_int_bits(1, 2);
                 push_int_bits(delta, 5);
             } else
             if (delta < 256) {
                 // opcode_stats_d256++;
-                push_int_bits(4, 3);
+                push_int_bits(1, 3);
                 push_int_bits(delta, 8);
             } else {
                 // opcode_stats_d8M++;
-                push_int_bits(16, 5);
+                push_int_bits(1, 5);
                 push_int_bits(delta, 23);
             }
         }
@@ -152,14 +147,18 @@ function compressor () {
 
     $.on('error', function (err) { /* TODO */ });
 
-    $._write = function (chunk, enc, next) {
+    $._transform = function (chunk, enc, next) {
         compress(parse(chunk));
         next();
     };
 
-    $.on('finish', drainTheSwamp);
-
-    $._read = function () { };
+    $._flush = function (next) {
+        push_int_bits(0, 5);
+        push_int_bits(numzeros, 23);
+        $.push(swamp.slice(0, (frogs + 7) >> 3));
+        $.push(null);
+        next();
+    };
 
     $.push(Buffer.alloc(8, 'ICECOMPR', 'ascii'));
 
