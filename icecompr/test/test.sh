@@ -9,7 +9,7 @@ clang++ -std=c++11 ~/work/github/cliffordwolf/icestorm/icecompr/icecompr.cc -o i
 for fname in *.bin
 do
   python3 ~/work/github/cliffordwolf/icestorm/icecompr/icecompr.py < $fname > build/$fname.py.compr
-  icecompr < $fname > build/$fname.cc.compr
+  ./icecompr < $fname > build/$fname.cc.compr
   ../icecompr.js < $fname > build/$fname.js.compr
 
   xxd $fname                build/$fname.hex

@@ -29,7 +29,7 @@ function compressor () {
     // parse STATE
     var numzeros = 0;
     // compress STATE
-    var swamp = Buffer.alloc(0x1000);
+    var swamp = Buffer.alloc(0x10000);
     var frogs = 0; // [bits]
 
     function push_int_bits (value, bits) {
